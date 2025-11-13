@@ -1,6 +1,7 @@
 package xblive
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,15 +11,15 @@ import (
 
 // TokenCache is an interface for managing cached authentication tokens
 type TokenCache interface {
-	GetAccessToken() (string, bool)
-	GetRefreshToken() (string, bool)
-	GetUserToken() (string, bool)
-	GetXSTSToken() (token string, userHash string, ok bool)
-	SetAccessToken(token string, notAfter time.Time) error
-	SetRefreshToken(token string) error
-	SetUserToken(token string, notAfter time.Time) error
-	SetXSTSToken(token string, userHash string, notAfter time.Time) error
-	Clear() error
+	GetAccessToken(ctx context.Context) (string, bool)
+	GetRefreshToken(ctx context.Context) (string, bool)
+	GetUserToken(ctx context.Context) (string, bool)
+	GetXSTSToken(ctx context.Context) (token string, userHash string, ok bool)
+	SetAccessToken(ctx context.Context, token string, notAfter time.Time) error
+	SetRefreshToken(ctx context.Context, token string) error
+	SetUserToken(ctx context.Context, token string, notAfter time.Time) error
+	SetXSTSToken(ctx context.Context, token string, userHash string, notAfter time.Time) error
+	Clear(ctx context.Context) error
 }
 
 // FileTokenCache is a file-based implementation of TokenCache
@@ -89,7 +90,7 @@ func (c *FileTokenCache) save() error {
 }
 
 // GetAccessToken returns the cached access token if valid
-func (c *FileTokenCache) GetAccessToken() (string, bool) {
+func (c *FileTokenCache) GetAccessToken(ctx context.Context) (string, bool) {
 	if c.tokens.AccessToken == "" {
 		return "", false
 	}
@@ -100,7 +101,7 @@ func (c *FileTokenCache) GetAccessToken() (string, bool) {
 }
 
 // GetRefreshToken returns the cached refresh token
-func (c *FileTokenCache) GetRefreshToken() (string, bool) {
+func (c *FileTokenCache) GetRefreshToken(ctx context.Context) (string, bool) {
 	if c.tokens.RefreshToken == "" {
 		return "", false
 	}
@@ -108,7 +109,7 @@ func (c *FileTokenCache) GetRefreshToken() (string, bool) {
 }
 
 // GetUserToken returns the cached user token if valid
-func (c *FileTokenCache) GetUserToken() (string, bool) {
+func (c *FileTokenCache) GetUserToken(ctx context.Context) (string, bool) {
 	if c.tokens.UserToken == "" {
 		return "", false
 	}
@@ -119,7 +120,7 @@ func (c *FileTokenCache) GetUserToken() (string, bool) {
 }
 
 // GetXSTSToken returns the cached XSTS token and user hash if valid
-func (c *FileTokenCache) GetXSTSToken() (token string, userHash string, ok bool) {
+func (c *FileTokenCache) GetXSTSToken(ctx context.Context) (token string, userHash string, ok bool) {
 	if c.tokens.XSTSToken == "" || c.tokens.UserHash == "" {
 		return "", "", false
 	}
@@ -130,27 +131,27 @@ func (c *FileTokenCache) GetXSTSToken() (token string, userHash string, ok bool)
 }
 
 // SetAccessToken stores the access token
-func (c *FileTokenCache) SetAccessToken(token string, notAfter time.Time) error {
+func (c *FileTokenCache) SetAccessToken(ctx context.Context, token string, notAfter time.Time) error {
 	c.tokens.AccessToken = token
 	c.tokens.AccessTokenExpiry = notAfter
 	return c.save()
 }
 
 // SetRefreshToken stores the refresh token
-func (c *FileTokenCache) SetRefreshToken(token string) error {
+func (c *FileTokenCache) SetRefreshToken(ctx context.Context, token string) error {
 	c.tokens.RefreshToken = token
 	return c.save()
 }
 
 // SetUserToken stores the user token
-func (c *FileTokenCache) SetUserToken(token string, notAfter time.Time) error {
+func (c *FileTokenCache) SetUserToken(ctx context.Context, token string, notAfter time.Time) error {
 	c.tokens.UserToken = token
 	c.tokens.UserTokenExpiry = notAfter
 	return c.save()
 }
 
 // SetXSTSToken stores the XSTS token and user hash
-func (c *FileTokenCache) SetXSTSToken(token string, userHash string, notAfter time.Time) error {
+func (c *FileTokenCache) SetXSTSToken(ctx context.Context, token string, userHash string, notAfter time.Time) error {
 	c.tokens.XSTSToken = token
 	c.tokens.UserHash = userHash
 	c.tokens.XSTSTokenExpiry = notAfter
@@ -158,7 +159,7 @@ func (c *FileTokenCache) SetXSTSToken(token string, userHash string, notAfter ti
 }
 
 // Clear removes all cached tokens
-func (c *FileTokenCache) Clear() error {
+func (c *FileTokenCache) Clear(ctx context.Context) error {
 	c.tokens = &CachedTokens{}
 	if err := os.Remove(c.filePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove token cache: %w", err)

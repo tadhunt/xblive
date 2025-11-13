@@ -50,10 +50,10 @@ func (c *Client) authenticateDeviceCode(ctx context.Context) error {
 
 	// Cache the tokens
 	notAfter := time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
-	if err := c.cache.SetAccessToken(token.AccessToken, notAfter); err != nil {
+	if err := c.cache.SetAccessToken(ctx, token.AccessToken, notAfter); err != nil {
 		return fmt.Errorf("failed to cache access token: %w", err)
 	}
-	if err := c.cache.SetRefreshToken(token.RefreshToken); err != nil {
+	if err := c.cache.SetRefreshToken(ctx, token.RefreshToken); err != nil {
 		return fmt.Errorf("failed to cache refresh token: %w", err)
 	}
 
@@ -167,7 +167,7 @@ func (c *Client) tryGetToken(ctx context.Context, deviceCode string) (*TokenResp
 
 // refreshAccessToken refreshes the access token using the refresh token
 func (c *Client) refreshAccessToken(ctx context.Context) error {
-	refreshToken, ok := c.cache.GetRefreshToken()
+	refreshToken, ok := c.cache.GetRefreshToken(ctx)
 	if !ok {
 		return fmt.Errorf("no refresh token available")
 	}
@@ -202,11 +202,11 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 
 	// Cache the new tokens
 	notAfter := time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
-	if err := c.cache.SetAccessToken(token.AccessToken, notAfter); err != nil {
+	if err := c.cache.SetAccessToken(ctx, token.AccessToken, notAfter); err != nil {
 		return err
 	}
 	if token.RefreshToken != "" {
-		if err := c.cache.SetRefreshToken(token.RefreshToken); err != nil {
+		if err := c.cache.SetRefreshToken(ctx, token.RefreshToken); err != nil {
 			return err
 		}
 	}
@@ -331,17 +331,17 @@ func formatXboxError(err XboxErrorResponse) error {
 // ensureXSTSToken ensures we have a valid XSTS token, refreshing if necessary
 func (c *Client) ensureXSTSToken(ctx context.Context) (string, string, error) {
 	// Check if we have a valid cached XSTS token
-	if token, userHash, ok := c.cache.GetXSTSToken(); ok {
+	if token, userHash, ok := c.cache.GetXSTSToken(ctx); ok {
 		return token, userHash, nil
 	}
 
 	// Check if we have a valid cached user token
-	if userToken, ok := c.cache.GetUserToken(); ok {
+	if userToken, ok := c.cache.GetUserToken(ctx); ok {
 		// Exchange for XSTS token
 		xstsResp, err := c.getXSTSToken(ctx, userToken)
 		if err == nil {
 			userHash := extractUserHash(xstsResp.DisplayClaims)
-			if err := c.cache.SetXSTSToken(xstsResp.Token, userHash, xstsResp.NotAfter); err != nil {
+			if err := c.cache.SetXSTSToken(ctx, xstsResp.Token, userHash, xstsResp.NotAfter); err != nil {
 				return "", "", err
 			}
 			return xstsResp.Token, userHash, nil
@@ -349,13 +349,13 @@ func (c *Client) ensureXSTSToken(ctx context.Context) (string, string, error) {
 	}
 
 	// Check if we have a valid cached access token
-	accessToken, ok := c.cache.GetAccessToken()
+	accessToken, ok := c.cache.GetAccessToken(ctx)
 	if !ok {
 		// Try to refresh
 		if err := c.refreshAccessToken(ctx); err != nil {
 			return "", "", fmt.Errorf("not authenticated, please call Authenticate() first")
 		}
-		accessToken, ok = c.cache.GetAccessToken()
+		accessToken, ok = c.cache.GetAccessToken(ctx)
 		if !ok {
 			return "", "", fmt.Errorf("failed to obtain access token")
 		}
@@ -367,7 +367,7 @@ func (c *Client) ensureXSTSToken(ctx context.Context) (string, string, error) {
 		return "", "", fmt.Errorf("failed to get user token: %w", err)
 	}
 
-	if err := c.cache.SetUserToken(userTokenResp.Token, userTokenResp.NotAfter); err != nil {
+	if err := c.cache.SetUserToken(ctx, userTokenResp.Token, userTokenResp.NotAfter); err != nil {
 		return "", "", err
 	}
 
@@ -378,7 +378,7 @@ func (c *Client) ensureXSTSToken(ctx context.Context) (string, string, error) {
 	}
 
 	userHash := extractUserHash(xstsResp.DisplayClaims)
-	if err := c.cache.SetXSTSToken(xstsResp.Token, userHash, xstsResp.NotAfter); err != nil {
+	if err := c.cache.SetXSTSToken(ctx, xstsResp.Token, userHash, xstsResp.NotAfter); err != nil {
 		return "", "", err
 	}
 

@@ -63,8 +63,8 @@ func (c *Client) Authenticate(ctx context.Context) error {
 }
 
 // ClearCache clears all cached authentication tokens
-func (c *Client) ClearCache() error {
-	return c.cache.Clear()
+func (c *Client) ClearCache(ctx context.Context) error {
+	return c.cache.Clear(ctx)
 }
 
 // GamertagToXUID converts a single gamertag to XUID

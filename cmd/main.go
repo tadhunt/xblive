@@ -40,7 +40,7 @@ func main() {
 	case "auth":
 		handleAuth(ctx, client)
 	case "logout":
-		handleLogout(client)
+		handleLogout(ctx, client)
 	case "lookup":
 		if len(os.Args) < 3 {
 			fmt.Fprintf(os.Stderr, "Error: gamertag required\n")
@@ -90,8 +90,8 @@ func handleAuth(ctx context.Context, client *xblive.Client) {
 	fmt.Printf("Tokens cached. You can now use lookup commands.\n")
 }
 
-func handleLogout(client *xblive.Client) {
-	if err := client.ClearCache(); err != nil {
+func handleLogout(ctx context.Context, client *xblive.Client) {
+	if err := client.ClearCache(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to clear cache: %v\n", err)
 		os.Exit(1)
 	}
