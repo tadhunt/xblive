@@ -110,15 +110,15 @@ func handleLogout(ctx context.Context, client *xblive.Client) {
 func handleLookup(ctx context.Context, client *xblive.Client, gamertag string) {
 	fmt.Printf("Looking up gamertag: %s\n", gamertag)
 
-	xuid, err := client.GamertagToXUID(ctx, gamertag)
+	profile, err := client.LookupProfileByGamertag(ctx, gamertag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Lookup failed: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("\n✓ Found!\n")
-	fmt.Printf("  Gamertag: %s\n", gamertag)
-	fmt.Printf("  XUID:     %s\n", xuid)
+	fmt.Printf("  Gamertag: %s\n", profile.Gamertag)
+	fmt.Printf("  XUID:     %s\n", profile.XUID)
 }
 
 func handleProfile(ctx context.Context, client *xblive.Client, gamertag string) {
@@ -149,7 +149,7 @@ func handleBatch(ctx context.Context, client *xblive.Client, gamertagsStr string
 
 	fmt.Printf("Looking up %d gamertags...\n", len(gamertags))
 
-	results, err := client.GamertagsToXUIDs(ctx, gamertags)
+	results, fuzzyOnly, err := client.GamertagsToXUIDs(ctx, gamertags)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Batch lookup failed: %v\n", err)
 		os.Exit(1)
@@ -165,14 +165,7 @@ func handleBatch(ctx context.Context, client *xblive.Client, gamertagsStr string
 	}
 	fmt.Println(string(output))
 
-	// Show any gamertags that weren't found
-	notFound := []string{}
-	for _, gt := range gamertags {
-		if _, ok := results[gt]; !ok {
-			notFound = append(notFound, gt)
-		}
-	}
-	if len(notFound) > 0 {
-		fmt.Printf("\n⚠ Not found: %s\n", strings.Join(notFound, ", "))
+	if len(fuzzyOnly) > 0 {
+		fmt.Printf("\n⚠ No exact match (fuzzy results shown): %s\n", strings.Join(fuzzyOnly, ", "))
 	}
 }

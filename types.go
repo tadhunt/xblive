@@ -81,21 +81,39 @@ type SearchResponse struct {
 
 // Profile represents an Xbox Live user profile
 type Profile struct {
-	XUID                 string `json:"xuid"`
-	Gamertag             string `json:"gamertag"`
-	ModernGamertag       string `json:"modernGamertag"`
-	ModernGamertagSuffix string `json:"modernGamertagSuffix"`
-	UniqueModernGamertag string `json:"uniqueModernGamertag"`
-	GamerScore           string `json:"gamerScore"` // API returns as string
-	PresenceState        string `json:"presenceState"`
-	PresenceText         string `json:"presenceText"`
-	IsFavorite           bool   `json:"isFavorite"`
-	IsFollowingCaller    bool   `json:"isFollowingCaller"`
-	IsFollowedByCaller   bool   `json:"isFollowedByCaller"`
-	IsIdentityShared     bool   `json:"isIdentityShared"`
-	DisplayPicRaw        string `json:"displayPicRaw"`
-	RealName             string `json:"realName"`
-	AccountTier          string `json:"accountTier"`
+	XUID                 string         `json:"xuid"`
+	Gamertag             string         `json:"gamertag"`
+	DisplayName          string         `json:"displayName"`
+	RealName             string         `json:"realName"`
+	DisplayPicRaw        string         `json:"displayPicRaw"`
+	GamerScore           string         `json:"gamerScore"`
+	ModernGamertag       string         `json:"modernGamertag"`
+	ModernGamertagSuffix string         `json:"modernGamertagSuffix"`
+	UniqueModernGamertag string         `json:"uniqueModernGamertag"`
+	XboxOneRep           string         `json:"xboxOneRep"`
+	PresenceState        string         `json:"presenceState"`
+	PresenceText         string         `json:"presenceText"`
+	IsFavorite           bool           `json:"isFavorite"`
+	IsFollowingCaller    bool           `json:"isFollowingCaller"`
+	IsFollowedByCaller   bool           `json:"isFollowedByCaller"`
+	IsBroadcasting       bool           `json:"isBroadcasting"`
+	IsQuarantined        bool           `json:"isQuarantined"`
+	IsXbox360Gamerpic    bool           `json:"isXbox360Gamerpic"`
+	Detail               *ProfileDetail `json:"detail"`
+}
+
+// ProfileDetail contains additional profile details
+type ProfileDetail struct {
+	AccountTier    string `json:"accountTier"`
+	Bio            string `json:"bio"`
+	IsVerified     bool   `json:"isVerified"`
+	Location       string `json:"location"`
+	Tenure         string `json:"tenure"`
+	Blocked        bool   `json:"blocked"`
+	Mute           bool   `json:"mute"`
+	FollowerCount  int    `json:"followerCount"`
+	FollowingCount int    `json:"followingCount"`
+	HasGamePass    bool   `json:"hasGamePass"`
 }
 
 // CachedTokens represents cached authentication tokens

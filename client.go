@@ -12,11 +12,6 @@ import (
 	"time"
 )
 
-const (
-	// API endpoints
-	searchEndpoint = "https://peoplehub.xboxlive.com/users/me/people/search/decoration/detail,preferredColor"
-)
-
 var ErrNotFound = errors.New("not found")
 
 // Config contains configuration for the Xbox Live client
@@ -76,7 +71,7 @@ func (c *Client) GamertagToXUID(ctx context.Context, gamertag string) (string, e
 		return "", fmt.Errorf("gamertag is required")
 	}
 
-	profiles, err := c.searchGamertags(ctx, []string{gamertag})
+	profiles, _, err := c.searchGamertags(ctx, []string{gamertag})
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +89,7 @@ func (c *Client) LookupProfileByGamertag(ctx context.Context, gamertag string) (
 		return nil, fmt.Errorf("gamertag is required")
 	}
 
-	profiles, err := c.searchGamertags(ctx, []string{gamertag})
+	profiles, _, err := c.searchGamertags(ctx, []string{gamertag})
 	if err != nil {
 		return nil, err
 	}
@@ -111,30 +106,23 @@ func (c *Client) LookupProfileByGamertag(ctx context.Context, gamertag string) (
 }
 
 // GamertagsToXUIDs converts multiple gamertags to XUIDs (batch lookup)
-// Returns a map of gamertag -> XUID
-// Gamertags that are not found will not be in the result map
-func (c *Client) GamertagsToXUIDs(ctx context.Context, gamertags []string) (map[string]string, error) {
+// Returns: map of gamertag -> XUID, list of gamertags with no exact match, error
+func (c *Client) GamertagsToXUIDs(ctx context.Context, gamertags []string) (map[string]string, []string, error) {
 	if len(gamertags) == 0 {
-		return map[string]string{}, nil
+		return map[string]string{}, nil, nil
 	}
 
-	profiles, err := c.searchGamertags(ctx, gamertags)
+	profiles, fuzzyOnly, err := c.searchGamertags(ctx, gamertags)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	result := make(map[string]string)
 	for _, profile := range profiles {
-		// Match by case-insensitive gamertag comparison
-		for _, gt := range gamertags {
-			if strings.EqualFold(profile.Gamertag, gt) {
-				result[gt] = profile.XUID
-				break
-			}
-		}
+		result[profile.Gamertag] = profile.XUID
 	}
 
-	return result, nil
+	return result, fuzzyOnly, nil
 }
 
 // GetProfile gets the full profile for a user by XUID
@@ -152,24 +140,26 @@ func (c *Client) GetProfile(ctx context.Context, xuid string) (*Profile, error) 
 }
 
 // searchGamertags searches for gamertags and returns their profiles
-func (c *Client) searchGamertags(ctx context.Context, gamertags []string) ([]*Profile, error) {
+// Returns: profiles, list of gamertags with no exact/normalized match, error
+func (c *Client) searchGamertags(ctx context.Context, gamertags []string) ([]*Profile, []string, error) {
 	// Ensure we have a valid XSTS token
 	xstsToken, userHash, err := c.ensureXSTSToken(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// The search endpoint accepts a single query, so we'll need to make multiple requests
 	// for true batch support. For now, we'll search for each gamertag individually
 	var allProfiles []*Profile
+	var fuzzyOnly []string
 
 	for _, gamertag := range gamertags {
-		// Build search URL
-		searchURL := fmt.Sprintf("%s?q=%s&maxItems=25", searchEndpoint, url.QueryEscape(gamertag))
+		// Try peoplehub endpoint for fuzzy matching
+		searchURL := fmt.Sprintf("https://peoplehub.xboxlive.com/users/me/people/search/decoration/detail?q=%s", url.QueryEscape(gamertag))
 
 		req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Set required headers
@@ -180,29 +170,38 @@ func (c *Client) searchGamertags(ctx context.Context, gamertags []string) ([]*Pr
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("search request failed: %w", err)
+			return nil, nil, fmt.Errorf("search request failed: %w", err)
 		}
 
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("search request failed: %s - %s", resp.Status, string(body))
+			return nil, nil, fmt.Errorf("search request failed: %s - %s", resp.Status, string(body))
 		}
 
 		var searchResp SearchResponse
 		if err := json.Unmarshal(body, &searchResp); err != nil {
-			return nil, fmt.Errorf("failed to parse search response: %w", err)
+			return nil, nil, fmt.Errorf("failed to parse search response: %w", err)
 		}
 
-		// Find exact match (case-insensitive)
+		// If we find any matches only differ WRT the presence of whitespace, then return just those otherwise return all matches
+		normalizedQuery := strings.ReplaceAll(strings.ToLower(gamertag), " ", "")
+		matched := false
 		for _, profile := range searchResp.People {
-			if strings.EqualFold(profile.Gamertag, gamertag) {
+			normalizedGamertag := strings.ReplaceAll(strings.ToLower(profile.Gamertag), " ", "")
+			if normalizedGamertag == normalizedQuery {
 				allProfiles = append(allProfiles, profile)
-				break
+				matched = true
 			}
+		}
+
+		if !matched {
+			// No exact match - return all fuzzy results
+			allProfiles = append(allProfiles, searchResp.People...)
+			fuzzyOnly = append(fuzzyOnly, gamertag)
 		}
 	}
 
-	return allProfiles, nil
+	return allProfiles, fuzzyOnly, nil
 }
