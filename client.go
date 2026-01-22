@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
@@ -95,11 +96,11 @@ func (c *Client) LookupProfileByGamertag(ctx context.Context, gamertag string) (
 	}
 
 	if len(profiles) == 0 {
-		return nil, fmt.Errorf("gamertag '%s': %w", gamertag, ErrNotFound)
+		return nil, fmt.Errorf("%w: gamertag '%s'", ErrNotFound, gamertag)
 	}
 
 	if len(profiles) > 1 {
-		return nil, fmt.Errorf("gamertag '%s' matched %d profiles", gamertag, len(profiles))
+		return nil, fmt.Errorf("%w: gamertag '%s' matched %d profiles", ErrNotFound, gamertag, len(profiles))
 	}
 
 	return profiles[0], nil
@@ -173,6 +174,8 @@ func (c *Client) searchGamertags(ctx context.Context, gamertags []string) ([]*Pr
 			return nil, nil, fmt.Errorf("search request failed: %w", err)
 		}
 
+dump(resp)
+
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
@@ -190,6 +193,7 @@ func (c *Client) searchGamertags(ctx context.Context, gamertags []string) ([]*Pr
 		matched := false
 		for _, profile := range searchResp.People {
 			normalizedGamertag := strings.ReplaceAll(strings.ToLower(profile.Gamertag), " ", "")
+fmt.Printf("checking %q against %q: %v\n", normalizedQuery, normalizedGamertag, normalizedGamertag == normalizedQuery)
 			if normalizedGamertag == normalizedQuery {
 				allProfiles = append(allProfiles, profile)
 				matched = true
@@ -204,4 +208,16 @@ func (c *Client) searchGamertags(ctx context.Context, gamertags []string) ([]*Pr
 	}
 
 	return allProfiles, fuzzyOnly, nil
+}
+
+func dump(resp *http.Response) {
+	raw, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+
+	fmt.Printf("\n")
+	fmt.Printf("%s\n", string(raw))
+	fmt.Printf("\n")
 }
